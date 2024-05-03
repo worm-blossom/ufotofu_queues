@@ -2,6 +2,9 @@
 #![feature(allocator_api)]
 #![feature(maybe_uninit_slice)]
 #![feature(maybe_uninit_write_slice)]
+#![feature(new_uninit)]
+
+pub mod fixed;
 
 use core::cmp::min;
 use core::mem::MaybeUninit;
