@@ -19,6 +19,7 @@ pub trait Queue {
 
     fn enqueue_slots(&mut self) -> Result<&mut [MaybeUninit<Self::Item>], Self::Error>;
 
+    // TODO: Safety docs.
     unsafe fn did_enqueue(&mut self, amount: usize) -> Result<(), Self::Error>;
 
     fn bulk_enqueue(&mut self, buffer: &[Self::Item]) -> Result<usize, Self::Error> {

@@ -6,8 +6,13 @@ use core::mem::MaybeUninit;
 
 use crate::Queue;
 
-#[derive(Debug)]
-pub struct QueueFullError;
+#[derive(Debug, PartialEq, Eq)]
+pub enum FixedQueueError {
+    //#[error("No items are available")]
+    Empty,
+    //#[error("All available capacity is occupied")]
+    Full,
+}
 
 /// A queue holding up to a certain number of items. The capacity is set upon
 /// creation and remains fixed. Performs a single heap allocation on creation.
@@ -21,7 +26,6 @@ pub struct Fixed<T, A: Allocator = Global> {
 }
 
 impl<T> Fixed<T> {
-    // TODO: Can this be `usize` or do we need a `NonZeroUsize`?
     pub fn new(capacity: usize) -> Self {
         Fixed {
             data: Box::new_uninit_slice(capacity),
@@ -74,15 +78,15 @@ impl<T: Copy, A: Allocator> Fixed<T, A> {
 
 impl<T: Copy, A: Allocator> Queue for Fixed<T, A> {
     type Item = T;
-    type Error = QueueFullError;
+    type Error = FixedQueueError;
 
     fn get_amount(&self) -> usize {
         self.amount
     }
 
-    fn enqueue(&mut self, item: T) -> Result<(), QueueFullError> {
+    fn enqueue(&mut self, item: T) -> Result<(), FixedQueueError> {
         if self.amount == self.capacity() {
-            Err(QueueFullError)
+            Err(FixedQueueError::Full)
         } else {
             self.data[self.write_to()].write(item);
             self.amount += 1;
@@ -91,25 +95,25 @@ impl<T: Copy, A: Allocator> Queue for Fixed<T, A> {
         }
     }
 
-    fn enqueue_slots(&mut self) -> Result<&mut [MaybeUninit<T>], QueueFullError> {
+    fn enqueue_slots(&mut self) -> Result<&mut [MaybeUninit<T>], FixedQueueError> {
         // TODO: Can the amount ever be greater than capacity?
         if self.amount >= self.capacity() {
-            Err(QueueFullError)
+            Err(FixedQueueError::Full)
         } else {
             Ok(self.available_fst())
         }
     }
 
     // TODO: Requires safety documentation.
-    unsafe fn did_enqueue(&mut self, amount: usize) -> Result<(), QueueFullError> {
+    unsafe fn did_enqueue(&mut self, amount: usize) -> Result<(), FixedQueueError> {
         self.amount += amount;
 
         Ok(())
     }
 
-    fn dequeue(&mut self) -> Result<T, QueueFullError> {
+    fn dequeue(&mut self) -> Result<T, FixedQueueError> {
         if self.amount == 0 {
-            Err(QueueFullError)
+            Err(FixedQueueError::Empty)
         } else {
             let previous_read = self.read;
             self.read = (self.read + 1) % self.capacity();
@@ -119,18 +123,59 @@ impl<T: Copy, A: Allocator> Queue for Fixed<T, A> {
         }
     }
 
-    fn dequeue_slots(&mut self) -> Result<&[T], QueueFullError> {
+    fn dequeue_slots(&mut self) -> Result<&[T], FixedQueueError> {
         if self.amount == 0 {
-            Err(QueueFullError)
+            Err(FixedQueueError::Empty)
         } else {
             Ok(unsafe { MaybeUninit::slice_assume_init_ref(self.readable_fst()) })
         }
     }
 
-    fn did_dequeue(&mut self, amount: usize) -> Result<(), QueueFullError> {
+    fn did_dequeue(&mut self, amount: usize) -> Result<(), FixedQueueError> {
         self.read = (self.read + amount) % self.capacity();
         self.amount -= amount;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn enqueues_and_dequeues_with_correct_amount() {
+        let mut queue: Fixed<u8> = Fixed::new(4);
+
+        queue.enqueue(7).unwrap();
+        queue.enqueue(21).unwrap();
+        queue.enqueue(196).unwrap();
+        assert_eq!(queue.get_amount(), 3);
+
+        queue.enqueue(233).unwrap();
+        assert_eq!(queue.get_amount(), 4);
+
+        // Queue should be first-in, first-out.
+        assert_eq!(queue.dequeue(), Ok(7));
+        assert_eq!(queue.get_amount(), 3);
+    }
+
+    #[test]
+    fn errors_on_enqueue_when_queue_is_full() {
+        let mut queue: Fixed<u8> = Fixed::new(1);
+
+        queue.enqueue(7).unwrap();
+
+        assert_eq!(queue.enqueue(0).unwrap_err(), FixedQueueError::Full);
+    }
+
+    #[test]
+    fn errors_on_dequeue_when_queue_is_empty() {
+        let mut queue: Fixed<u8> = Fixed::new(1);
+
+        queue.enqueue(7).unwrap();
+        queue.dequeue().unwrap();
+
+        assert_eq!(queue.dequeue().unwrap_err(), FixedQueueError::Empty);
     }
 }
