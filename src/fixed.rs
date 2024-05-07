@@ -118,6 +118,7 @@ impl<T: Copy, A: Allocator> Queue for Fixed<T, A> {
             Err(FixedQueueError::Empty)
         } else {
             let previous_read = self.read;
+            // Advance the read index by 1 or reset to 0 if at capacity.
             self.read = (self.read + 1) % self.capacity();
             self.amount -= 1;
 
