@@ -2,15 +2,17 @@ extern crate alloc;
 
 use alloc::alloc::{Allocator, Global};
 use alloc::boxed::Box;
+
 use core::mem::MaybeUninit;
 
 use crate::Queue;
 
+/// A fixed queue error.
 #[derive(Debug, PartialEq, Eq)]
 pub enum FixedQueueError {
-    //#[error("No items are available")]
+    /// No items are available.
     Empty,
-    //#[error("All available capacity is occupied")]
+    /// All available capacity is occupied.
     Full,
 }
 
@@ -161,6 +163,18 @@ mod tests {
     }
 
     #[test]
+    fn bulk_enqueues_and_dequeues_with_correct_amount() {
+        let mut queue: Fixed<u8> = Fixed::new(4);
+        let mut buf: [MaybeUninit<u8>; 4] = MaybeUninit::uninit_array();
+
+        let amount = queue.bulk_enqueue(b"ufo");
+        assert_eq!(amount.unwrap(), 3);
+
+        let amount = queue.bulk_dequeue(&mut buf);
+        assert_eq!(amount.unwrap(), 3);
+    }
+
+    #[test]
     fn errors_on_enqueue_when_queue_is_full() {
         let mut queue: Fixed<u8> = Fixed::new(1);
 
@@ -177,5 +191,44 @@ mod tests {
         queue.dequeue().unwrap();
 
         assert_eq!(queue.dequeue().unwrap_err(), FixedQueueError::Empty);
+    }
+
+    #[test]
+    fn errors_on_enqueue_slots_when_none_are_available() {
+        // Create a fixed queue that exposes four slots.
+        let mut queue: Fixed<u8> = Fixed::new(4);
+
+        // Copy data to two of the available slots and call `did_enqueue`.
+        let data = b"tofu";
+        let slots = queue.enqueue_slots().unwrap();
+        MaybeUninit::copy_from_slice(&mut slots[0..2], &data[0..2]);
+        unsafe {
+            assert!(queue.did_enqueue(2).is_ok());
+        }
+
+        // Copy data to two of the available slots and call `did_enqueue`.
+        let slots = queue.enqueue_slots().unwrap();
+        MaybeUninit::copy_from_slice(&mut slots[0..2], &data[0..2]);
+        unsafe {
+            assert!(queue.did_enqueue(2).is_ok());
+        }
+
+        // Make a third call to `enqueue_slots` after all available slots have been used.
+        assert_eq!(queue.enqueue_slots().unwrap_err(), FixedQueueError::Full);
+    }
+
+    #[test]
+    fn errors_on_dequeue_slots_when_none_are_available() {
+        // Create a fixed queue that exposes four slots.
+        let mut queue: Fixed<u8> = Fixed::new(4);
+
+        let data = b"tofu";
+        let _amount = queue.bulk_enqueue(data).unwrap();
+
+        let _slots = queue.dequeue_slots().unwrap();
+        assert!(queue.did_dequeue(4).is_ok());
+
+        // Make a second call to `dequeue_slots` after all available slots have been used.
+        assert_eq!(queue.dequeue_slots().unwrap_err(), FixedQueueError::Empty);
     }
 }
