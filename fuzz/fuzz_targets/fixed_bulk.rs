@@ -24,12 +24,19 @@ fn maybe_uninit_slice_mut<T>(slice: &mut [T]) -> &mut [MaybeUninit<T>] {
     unsafe { slice::from_raw_parts_mut(ptr, slice.len()) }
 }
 
-fuzz_target!(|data: Vec<Operation<u8>>| {
-    let capacity = 32;
+fuzz_target!(|data: (Vec<Operation<u8>>, usize)| {
+    let operations = data.0;
+    let capacity = data.1;
+
+    // Restrict capacity to between 1 and 2048 bytes (inclusive).
+    if capacity < 1 || capacity > 2048 {
+        return;
+    }
+
     let mut control = VecDeque::new();
     let mut test = Fixed::new(capacity);
 
-    for operation in data {
+    for operation in operations {
         match operation {
             Operation::Enqueue(item) => {
                 let control_result = if control.len() >= capacity {
