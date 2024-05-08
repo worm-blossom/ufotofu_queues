@@ -19,35 +19,23 @@ pub trait Queue {
 
     /// Attempt to enqueue the next item.
     ///
-    /// After this function returns an error, no further functions of this trait may be invoked.
-    ///
-    /// #### Invariants
-    ///
-    /// Must not be called after any function of this trait returned an error.
+    /// Will return an error if the queue is full at the time of calling.
     fn enqueue(&mut self, item: Self::Item) -> Result<(), Self::Error>;
 
     /// Expose a non-empty slice of memory for the client code to fill with items that should
     /// be enqueued.
     ///
-    /// After this function returns an error, no further functions of this trait may be invoked.
-    ///
-    /// #### Invariants
-    ///
-    /// Must not be called after any function of this trait has returned an error.
+    /// Will return an error if the queue is full at the time of calling.
     fn enqueue_slots(&mut self) -> Result<&mut [MaybeUninit<Self::Item>], Self::Error>;
 
     /// Instruct the queue to consume the first `amount` many items of the `enqueue_slots`
     /// it has most recently exposed. The semantics must be equivalent to those of `enqueue`
     /// being called `amount` many times with exactly those items.
     ///
-    /// After this function returns an error, no further functions of this trait may be invoked.
-    ///
     /// #### Invariants
     ///
     /// Callers must have written into (at least) the `amount` many first `enqueue_slots` that
     /// were most recently exposed. Failure to uphold this invariant may cause undefined behavior.
-    ///
-    /// Must not be called after any function of this trait has returned an error.
     ///
     /// #### Safety
     ///
@@ -60,11 +48,7 @@ pub trait Queue {
     /// Enqueue a non-zero number of items by reading them from a given buffer and returning how
     /// many items were enqueued.
     ///
-    /// After this function returns an error, no further functions of this trait may be invoked.
-    ///
-    /// #### Invariants
-    ///
-    /// Must not be called after any function of this trait has returned an error.
+    /// Will return an error if the queue is full at the time of calling.
     ///
     /// #### Implementation Notes
     ///
@@ -84,43 +68,27 @@ pub trait Queue {
 
     /// Attempt to dequeue the next item.
     ///
-    /// After this function returns an error, no further functions of this trait may be invoked.
-    ///
-    /// #### Invariants
-    ///
-    /// Must not be called after any function of this trait has returned an error.
+    /// Will return an error if the queue is empty at the time of calling.
     fn dequeue(&mut self) -> Result<Self::Item, Self::Error>;
 
     /// Expose a non-empty slice of items to be dequeued (or an error).
     /// The items in the slice must not have been emitted by `dequeue` before.
     ///
-    /// After this function returns an error, no further functions of this trait may be invoked.
-    ///
-    /// #### Invariants
-    ///
-    /// Must not be called after any function of this trait has returned an error.
+    /// Will return an error if the queue is empty at the time of calling.
     fn dequeue_slots(&mut self) -> Result<&[Self::Item], Self::Error>;
 
     /// Mark `amount` many items as having been dequeued. Future calls to `dequeue` and to
     /// `dequeue_slots` must act as if `dequeue` had been called `amount` many times.
     ///     
-    /// After this function returns an error, no further functions of this trait may be invoked.
-    ///
     /// #### Invariants
     ///
     /// Callers must not mark items as dequeued that had not previously been exposed by `dequeue_slots`.
-    ///
-    /// Must not be called after any function of this trait has returned an error.
     fn did_dequeue(&mut self, amount: usize) -> Result<(), Self::Error>;
 
     /// Dequeue a non-zero number of items by writing them into a given buffer and returning how
     /// many items were dequeued.
     ///
-    /// After this function returns an error, no further functions of this trait may be invoked.
-    ///
-    /// #### Invariants
-    ///
-    /// Must not be called after any function of this trait has returned an error.
+    /// Will return an error if the queue is empty at the time of calling.
     ///
     /// #### Implementation Notes
     ///
