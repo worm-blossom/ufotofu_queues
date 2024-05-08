@@ -53,20 +53,22 @@ impl<T: Copy, A: Allocator> Fixed<T, A> {
         self.read + self.amount < self.capacity()
     }
 
-    fn available_fst(&mut self) -> &mut [MaybeUninit<T>] {
+    /// Return a readable slice from the queue, which may or may not be contiguous.
+    fn readable_slice(&mut self) -> &[MaybeUninit<T>] {
+        if self.is_data_contiguous() {
+            &self.data[self.read..self.write_to()]
+        } else {
+            &self.data[self.read..]
+        }
+    }
+
+    /// Return a writeable slice from the queue, which may or may not be contiguous.
+    fn writeable_slice(&mut self) -> &mut [MaybeUninit<T>] {
         let capacity = self.capacity();
         if self.is_data_contiguous() {
             &mut self.data[self.read + self.amount..capacity]
         } else {
             &mut self.data[(self.read + self.amount) % capacity..self.read]
-        }
-    }
-
-    fn readable_fst(&mut self) -> &[MaybeUninit<T>] {
-        if self.is_data_contiguous() {
-            &self.data[self.read..self.write_to()]
-        } else {
-            &self.data[self.read..]
         }
     }
 
@@ -111,7 +113,7 @@ impl<T: Copy, A: Allocator> Queue for Fixed<T, A> {
         if self.amount >= self.capacity() {
             Err(FixedQueueError::Full)
         } else {
-            Ok(self.available_fst())
+            Ok(self.writeable_slice())
         }
     }
 
@@ -160,7 +162,7 @@ impl<T: Copy, A: Allocator> Queue for Fixed<T, A> {
         if self.amount == 0 {
             Err(FixedQueueError::Empty)
         } else {
-            Ok(unsafe { MaybeUninit::slice_assume_init_ref(self.readable_fst()) })
+            Ok(unsafe { MaybeUninit::slice_assume_init_ref(self.readable_slice()) })
         }
     }
 
