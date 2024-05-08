@@ -20,10 +20,11 @@ pub enum FixedQueueError {
 /// creation and remains fixed. Performs a single heap allocation on creation.
 #[derive(Debug)]
 pub struct Fixed<T, A: Allocator = Global> {
+    /// Slice of memory.
     data: Box<[MaybeUninit<T>], A>,
-    // Reading resumes from this position.
+    /// Read index.
     read: usize,
-    // Amount of valid data.
+    /// Amount of valid data.
     amount: usize,
 }
 
@@ -82,10 +83,14 @@ impl<T: Copy, A: Allocator> Queue for Fixed<T, A> {
     type Item = T;
     type Error = FixedQueueError;
 
+    /// Return the amount of items in the queue.
     fn get_amount(&self) -> usize {
         self.amount
     }
 
+    /// Attempt to enqueue the next item.
+    ///
+    /// Will return an error if the queue is full at the time of calling.
     fn enqueue(&mut self, item: T) -> Result<(), FixedQueueError> {
         if self.amount == self.capacity() {
             Err(FixedQueueError::Full)
@@ -97,6 +102,10 @@ impl<T: Copy, A: Allocator> Queue for Fixed<T, A> {
         }
     }
 
+    /// Expose a non-empty slice of memory for the client code to fill with items that should
+    /// be enqueued.
+    ///
+    /// Will return an error if the queue is full at the time of calling.
     fn enqueue_slots(&mut self) -> Result<&mut [MaybeUninit<T>], FixedQueueError> {
         // TODO: Can the amount ever be greater than capacity?
         if self.amount >= self.capacity() {
@@ -106,13 +115,30 @@ impl<T: Copy, A: Allocator> Queue for Fixed<T, A> {
         }
     }
 
-    // TODO: Requires safety documentation.
+    /// Instruct the queue to consume the first `amount` many items of the `enqueue_slots`
+    /// it has most recently exposed. The semantics must be equivalent to those of `enqueue`
+    /// being called `amount` many times with exactly those items.
+    ///
+    /// #### Invariants
+    ///
+    /// Callers must have written into (at least) the `amount` many first `enqueue_slots` that
+    /// were most recently exposed. Failure to uphold this invariant may cause undefined behavior.
+    ///
+    /// #### Safety
+    ///
+    /// Callers may assume the first `amount` many `enqueue_slots` that were most recently
+    /// exposed to contain initialized memory after this call, even if the memory it exposed was
+    /// originally uninitialized. Violating the invariants can cause the queue to read undefined
+    /// memory, which triggers undefined behavior.
     unsafe fn did_enqueue(&mut self, amount: usize) -> Result<(), FixedQueueError> {
         self.amount += amount;
 
         Ok(())
     }
 
+    /// Attempt to dequeue the next item.
+    ///
+    /// Will return an error if the queue is empty at the time of calling.
     fn dequeue(&mut self) -> Result<T, FixedQueueError> {
         if self.amount == 0 {
             Err(FixedQueueError::Empty)
@@ -126,6 +152,10 @@ impl<T: Copy, A: Allocator> Queue for Fixed<T, A> {
         }
     }
 
+    /// Expose a non-empty slice of items to be dequeued (or an error).
+    /// The items in the slice must not have been emitted by `dequeue` before.
+    ///
+    /// Will return an error if the queue is empty at the time of calling.
     fn dequeue_slots(&mut self) -> Result<&[T], FixedQueueError> {
         if self.amount == 0 {
             Err(FixedQueueError::Empty)
@@ -134,6 +164,12 @@ impl<T: Copy, A: Allocator> Queue for Fixed<T, A> {
         }
     }
 
+    /// Mark `amount` many items as having been dequeued. Future calls to `dequeue` and to
+    /// `dequeue_slots` must act as if `dequeue` had been called `amount` many times.
+    ///
+    /// #### Invariants
+    ///
+    /// Callers must not mark items as dequeued that had not previously been exposed by `dequeue_slots`.
     fn did_dequeue(&mut self, amount: usize) -> Result<(), FixedQueueError> {
         self.read = (self.read + amount) % self.capacity();
         self.amount -= amount;
