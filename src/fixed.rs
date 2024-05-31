@@ -171,12 +171,12 @@ mod tests {
     fn enqueues_and_dequeues_with_correct_amount() {
         let mut queue: Fixed<u8> = Fixed::new(4);
 
-        let _ = queue.enqueue(7);
-        let _ = queue.enqueue(21);
-        let _ = queue.enqueue(196);
+        assert_eq!(queue.enqueue(7), None);
+        assert_eq!(queue.enqueue(21), None);
+        assert_eq!(queue.enqueue(196), None);
         assert_eq!(queue.amount(), 3);
 
-        let _ = queue.enqueue(233);
+        assert_eq!(queue.enqueue(233), None);
         assert_eq!(queue.amount(), 4);
 
         // Queue should be first-in, first-out.
@@ -199,7 +199,7 @@ mod tests {
     fn returns_item_on_enqueue_when_queue_is_full() {
         let mut queue: Fixed<u8> = Fixed::new(1);
 
-        let _ = queue.enqueue(7);
+        assert_eq!(queue.enqueue(7), None);
 
         assert_eq!(queue.enqueue(0), Some(0))
     }
