@@ -155,7 +155,7 @@ impl<T: Copy, A: Allocator> Queue for Fixed<T, A> {
     ///
     /// #### Invariants
     ///
-    /// The queue must not mark items as dequeued that had not previously been exposed by
+    /// Callers must not mark items as dequeued that had not previously been exposed by
     /// `dequeue_slots`.
     fn did_dequeue(&mut self, amount: usize) {
         self.read = (self.read + amount) % self.capacity();
