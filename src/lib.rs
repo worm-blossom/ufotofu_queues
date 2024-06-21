@@ -5,18 +5,28 @@
 #![feature(maybe_uninit_write_slice)]
 #![feature(new_uninit)]
 
-pub mod fixed;
+//! A [trait](Queue) and implementations of non-blocking, infallible queues that support bulk enqueueing and bulk dequeueing via APIs inspired by [ufotofu](https://crates.io/crates/ufotofu).
+//! 
+//! ## Queue Implementations
+//! 
+//! So far, there is only a single implementation: [`Fixed`], which is a heap-allocated ring-buffer of unchanging capacity.
+//! 
+//! Future plans include a queue of static (known at compile-time) capacity that can be used in allocator-less environments, and an elastic queue that grows and shrinks its capacity within certain parameters, to free up memory under low load.
+
+mod fixed;
 
 use core::cmp::min;
 use core::mem::MaybeUninit;
 
+/// A first-in first-out queue. Provides methods for bulk transfer of items similar to [ufotofu](https://crates.io/crates/ufotofu).
 pub trait Queue {
+    /// The type of items to manage in the queue.
     type Item: Copy;
 
     /// Return the amount of items in the queue.
     fn amount(&self) -> usize;
 
-    /// Attempt to enqueue the next item.
+    /// Attempt to enqueue an item.
     ///
     /// Will return the item if the queue is full at the time of calling.
     fn enqueue(&mut self, item: Self::Item) -> Option<Self::Item>;
@@ -39,7 +49,7 @@ pub trait Queue {
     ///
     /// #### Safety
     ///
-    /// Callers may assume the first `amount` many `enqueue_slots` that were most recently
+    /// The queue implementation may assume the first `amount` many `enqueue_slots` that were most recently
     /// exposed to contain initialized memory after this call, even if the memory it exposed was
     /// originally uninitialized. Violating the invariants can cause the queue to read undefined
     /// memory, which triggers undefined behavior.
@@ -112,3 +122,5 @@ pub trait Queue {
         }
     }
 }
+
+pub use fixed::Fixed;

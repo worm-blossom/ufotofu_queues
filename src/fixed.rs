@@ -9,9 +9,12 @@ use crate::Queue;
 
 /// A queue holding up to a certain number of items. The capacity is set upon
 /// creation and remains fixed. Performs a single heap allocation on creation.
+/// 
+/// We will add fallible creation functions based on [`Box::try_new_in`](https://doc.rust-lang.org/nightly/std/boxed/struct.Box.html#method.try_new_in) at a later point, please reach out
+/// if you need them for your project.
 #[derive(Debug)]
 pub struct Fixed<T, A: Allocator = Global> {
-    /// Slice of memory.
+    /// Slice of memory, used as a ring-buffer.
     data: Box<[MaybeUninit<T>], A>,
     /// Read index.
     read: usize,
@@ -20,6 +23,7 @@ pub struct Fixed<T, A: Allocator = Global> {
 }
 
 impl<T> Fixed<T> {
+    /// Create a fixed-capacity queue. Panic if the initial memory allocation fails.
     pub fn new(capacity: usize) -> Self {
         Fixed {
             data: Box::new_uninit_slice(capacity),
@@ -30,6 +34,7 @@ impl<T> Fixed<T> {
 }
 
 impl<T, A: Allocator> Fixed<T, A> {
+    /// Create a fixed-capacity queue with a given memory allocator. Panic if the initial memory allocation fails.
     pub fn new_in(capacity: usize, alloc: A) -> Self {
         Fixed {
             data: Box::new_uninit_slice_in(capacity, alloc),
@@ -63,6 +68,9 @@ impl<T: Copy, A: Allocator> Fixed<T, A> {
         }
     }
 
+    /// Return the capacity with which thise queue was initialised.
+    /// 
+    /// The number of free item slots at any time is `q.capacity() - q.amount()`.
     pub fn capacity(&self) -> usize {
         self.data.len()
     }
