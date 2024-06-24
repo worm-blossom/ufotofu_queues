@@ -6,8 +6,9 @@ support bulk enqueueing and bulk dequeueing via APIs inspired by
 
 ## Queue Implementations
 
-So far, there is only a single implementation: [`Fixed`], which is a
-heap-allocated ring-buffer of unchanging capacity.
+So far, there is only a single implementation:
+[`Fixed`](https://docs.rs/ufotofu_queues/0.1.0/ufotofu_queues/struct.Fixed.html),
+which is a heap-allocated ring-buffer of unchanging capacity.
 
 Future plans include a queue of static (known at compile-time) capacity that can
 be used in allocator-less environments, and an elastic queue that grows and
