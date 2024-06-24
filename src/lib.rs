@@ -18,6 +18,8 @@ mod fixed;
 use core::cmp::min;
 use core::mem::MaybeUninit;
 
+pub use fixed::Fixed;
+
 /// A first-in first-out queue. Provides methods for bulk transfer of items similar to [ufotofu](https://crates.io/crates/ufotofu).
 pub trait Queue {
     /// The type of items to manage in the queue.
@@ -122,5 +124,3 @@ pub trait Queue {
         }
     }
 }
-
-pub use fixed::Fixed;
