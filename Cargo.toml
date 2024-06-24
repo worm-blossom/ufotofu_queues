@@ -6,5 +6,7 @@ readme = "README.md"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/worm-blossom/ufotofu_queues"
 description = "Infallible queues that support bulk enqueueing and dequeueing"
-
-[dependencies]
+exclude = [
+    "fuzz/*",
+    ".github/workflows/rust.yml",
+]
