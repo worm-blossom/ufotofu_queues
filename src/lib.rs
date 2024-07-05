@@ -25,8 +25,8 @@ pub trait Queue {
     /// The type of items to manage in the queue.
     type Item: Copy;
 
-    /// Return the amount of items in the queue.
-    fn amount(&self) -> usize;
+    /// Return the number of items currently in the queue.
+    fn len(&self) -> usize;
 
     /// Attempt to enqueue an item.
     ///

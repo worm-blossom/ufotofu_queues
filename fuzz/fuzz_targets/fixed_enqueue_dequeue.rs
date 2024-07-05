@@ -4,7 +4,7 @@ use std::collections::VecDeque;
 use arbitrary::Arbitrary;
 use libfuzzer_sys::fuzz_target;
 
-use ufotofu_queues::fixed::Fixed;
+use ufotofu_queues::Fixed;
 use ufotofu_queues::Queue;
 
 #[derive(Debug, Arbitrary)]

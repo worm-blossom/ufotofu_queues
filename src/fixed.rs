@@ -3,16 +3,16 @@ extern crate alloc;
 use alloc::alloc::{Allocator, Global};
 use alloc::boxed::Box;
 
+use core::fmt;
 use core::mem::MaybeUninit;
 
 use crate::Queue;
 
 /// A queue holding up to a certain number of items. The capacity is set upon
 /// creation and remains fixed. Performs a single heap allocation on creation.
-/// 
+///
 /// We will add fallible creation functions based on [`Box::try_new_in`](https://doc.rust-lang.org/nightly/std/boxed/struct.Box.html#method.try_new_in) at a later point, please reach out
 /// if you need them for your project.
-#[derive(Debug)]
 pub struct Fixed<T, A: Allocator = Global> {
     /// Slice of memory, used as a ring-buffer.
     data: Box<[MaybeUninit<T>], A>,
@@ -42,14 +42,12 @@ impl<T, A: Allocator> Fixed<T, A> {
             amount: 0,
         }
     }
-}
 
-impl<T: Copy, A: Allocator> Fixed<T, A> {
     fn is_data_contiguous(&self) -> bool {
         self.read + self.amount < self.capacity()
     }
 
-    /// Return a readable slice from the queue.
+    /// Return a slice containing the next items that should be read.
     fn readable_slice(&mut self) -> &[MaybeUninit<T>] {
         if self.is_data_contiguous() {
             &self.data[self.read..self.write_to()]
@@ -58,18 +56,19 @@ impl<T: Copy, A: Allocator> Fixed<T, A> {
         }
     }
 
-    /// Return a writeable slice from the queue.
+    /// Return a slice containing the next slots that should be written to.
     fn writeable_slice(&mut self) -> &mut [MaybeUninit<T>] {
         let capacity = self.capacity();
+        let write_to = self.write_to();
         if self.is_data_contiguous() {
-            &mut self.data[self.read + self.amount..capacity]
+            &mut self.data[write_to..capacity]
         } else {
-            &mut self.data[(self.read + self.amount) % capacity..self.read]
+            &mut self.data[write_to..self.read]
         }
     }
 
     /// Return the capacity with which thise queue was initialised.
-    /// 
+    ///
     /// The number of free item slots at any time is `q.capacity() - q.amount()`.
     pub fn capacity(&self) -> usize {
         self.data.len()
@@ -80,11 +79,32 @@ impl<T: Copy, A: Allocator> Fixed<T, A> {
     }
 }
 
+impl<T: Clone, A: Allocator> Fixed<T, A> {
+    // For implementing Debug
+    fn vec_of_current_items(&self) -> alloc::vec::Vec<T> {
+        if self.is_data_contiguous() {
+            unsafe {
+                MaybeUninit::slice_assume_init_ref(&self.data[self.read..self.write_to()]).to_vec()
+            }
+        } else {
+            // We only work with data thas has been enqueued, so the memory is not uninitialized anymore.
+            unsafe {
+                let mut ret = MaybeUninit::slice_assume_init_ref(&self.data[self.read..]).to_vec();
+                let len_first_slice = ret.len();
+                ret.extend_from_slice(MaybeUninit::slice_assume_init_ref(
+                    &self.data[0..(self.amount - len_first_slice)],
+                ));
+                ret
+            }
+        }
+    }
+}
+
 impl<T: Copy, A: Allocator> Queue for Fixed<T, A> {
     type Item = T;
 
-    /// Return the amount of items in the queue.
-    fn amount(&self) -> usize {
+    /// Return the number of items in the queue.
+    fn len(&self) -> usize {
         self.amount
     }
 
@@ -171,8 +191,20 @@ impl<T: Copy, A: Allocator> Queue for Fixed<T, A> {
     }
 }
 
+impl<T: Clone + fmt::Debug, A: Allocator> fmt::Debug for Fixed<T, A> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Fixed")
+            .field("capacity", &self.capacity())
+            .field("len", &self.amount)
+            .field("data", &self.vec_of_current_items())
+            .finish()
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use alloc::format;
+
     use super::*;
 
     #[test]
@@ -182,14 +214,14 @@ mod tests {
         assert_eq!(queue.enqueue(7), None);
         assert_eq!(queue.enqueue(21), None);
         assert_eq!(queue.enqueue(196), None);
-        assert_eq!(queue.amount(), 3);
+        assert_eq!(queue.len(), 3);
 
         assert_eq!(queue.enqueue(233), None);
-        assert_eq!(queue.amount(), 4);
+        assert_eq!(queue.len(), 4);
 
         // Queue should be first-in, first-out.
         assert_eq!(queue.dequeue(), Some(7));
-        assert_eq!(queue.amount(), 3);
+        assert_eq!(queue.len(), 3);
     }
 
     #[test]
@@ -261,5 +293,30 @@ mod tests {
 
         // Make a second call to `dequeue_slots` after all available slots have been used.
         assert!(queue.dequeue_slots().is_none());
+    }
+
+    #[test]
+    fn test_debug_impl() {
+        let mut queue: Fixed<u8> = Fixed::new(4);
+
+        assert_eq!(queue.enqueue(7), None);
+        assert_eq!(queue.enqueue(21), None);
+        assert_eq!(queue.enqueue(196), None);
+        assert_eq!(format!("{:?}", queue), "Fixed { capacity: 4, len: 3, data: [7, 21, 196] }");
+
+        assert_eq!(queue.dequeue(), Some(7));
+        assert_eq!(format!("{:?}", queue), "Fixed { capacity: 4, len: 2, data: [21, 196] }");
+
+        assert_eq!(queue.dequeue(), Some(21));
+        assert_eq!(format!("{:?}", queue), "Fixed { capacity: 4, len: 1, data: [196] }");
+
+        assert_eq!(queue.enqueue(33), None);
+        assert_eq!(format!("{:?}", queue), "Fixed { capacity: 4, len: 2, data: [196, 33] }");
+
+        assert_eq!(queue.enqueue(17), None);
+        assert_eq!(format!("{:?}", queue), "Fixed { capacity: 4, len: 3, data: [196, 33, 17] }");
+
+        assert_eq!(queue.enqueue(200), None);
+        assert_eq!(format!("{:?}", queue), "Fixed { capacity: 4, len: 4, data: [196, 33, 17, 200] }");
     }
 }
