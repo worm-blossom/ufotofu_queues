@@ -10,7 +10,7 @@ use crate::Queue;
 
 /// A queue holding up to a certain number of items. The capacity is set upon
 /// creation and remains fixed. Performs a single heap allocation on creation.
-/// 
+///
 /// Use the methods of the [Queue] trait implementation to interact with the contents of the queue.
 pub struct Fixed<T, A: Allocator = Global> {
     /// Slice of memory, used as a ring-buffer.
@@ -93,27 +93,6 @@ impl<T, A: Allocator> Fixed<T, A> {
 
     fn write_to(&self) -> usize {
         (self.read + self.amount) % self.capacity()
-    }
-}
-
-impl<T: Clone, A: Allocator> Fixed<T, A> {
-    // For implementing Debug
-    fn vec_of_current_items(&self) -> alloc::vec::Vec<T> {
-        if self.is_data_contiguous() {
-            unsafe {
-                MaybeUninit::slice_assume_init_ref(&self.data[self.read..self.write_to()]).to_vec()
-            }
-        } else {
-            // We only work with data thas has been enqueued, so the memory is not uninitialized anymore.
-            unsafe {
-                let mut ret = MaybeUninit::slice_assume_init_ref(&self.data[self.read..]).to_vec();
-                let len_first_slice = ret.len();
-                ret.extend_from_slice(MaybeUninit::slice_assume_init_ref(
-                    &self.data[0..(self.amount - len_first_slice)],
-                ));
-                ret
-            }
-        }
     }
 }
 
@@ -208,12 +187,39 @@ impl<T: Copy, A: Allocator> Queue for Fixed<T, A> {
     }
 }
 
-impl<T: Clone + fmt::Debug, A: Allocator> fmt::Debug for Fixed<T, A> {
+impl<T: fmt::Debug, A: Allocator> fmt::Debug for Fixed<T, A> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Fixed")
             .field("capacity", &self.capacity())
             .field("len", &self.amount)
-            .field("data", &self.vec_of_current_items())
+            // .field("data", &self.vec_of_current_items())
+            .field_with("data", |f| {
+                let mut list = f.debug_list();
+
+                if self.is_data_contiguous() {
+                    for item in unsafe {
+                        MaybeUninit::slice_assume_init_ref(&self.data[self.read..self.write_to()])
+                    } {
+                        list.entry(item);
+                    }
+                } else {
+                    for item in
+                        unsafe { MaybeUninit::slice_assume_init_ref(&self.data[self.read..]) }
+                    {
+                        list.entry(item);
+                    }
+
+                    for item in unsafe {
+                        MaybeUninit::slice_assume_init_ref(
+                            &self.data[0..(self.amount - self.data[self.read..].len())],
+                        )
+                    } {
+                        list.entry(item);
+                    }
+                }
+
+                list.finish()
+            })
             .finish()
     }
 }
@@ -319,21 +325,39 @@ mod tests {
         assert_eq!(queue.enqueue(7), None);
         assert_eq!(queue.enqueue(21), None);
         assert_eq!(queue.enqueue(196), None);
-        assert_eq!(format!("{:?}", queue), "Fixed { capacity: 4, len: 3, data: [7, 21, 196] }");
+        assert_eq!(
+            format!("{:?}", queue),
+            "Fixed { capacity: 4, len: 3, data: [7, 21, 196] }"
+        );
 
         assert_eq!(queue.dequeue(), Some(7));
-        assert_eq!(format!("{:?}", queue), "Fixed { capacity: 4, len: 2, data: [21, 196] }");
+        assert_eq!(
+            format!("{:?}", queue),
+            "Fixed { capacity: 4, len: 2, data: [21, 196] }"
+        );
 
         assert_eq!(queue.dequeue(), Some(21));
-        assert_eq!(format!("{:?}", queue), "Fixed { capacity: 4, len: 1, data: [196] }");
+        assert_eq!(
+            format!("{:?}", queue),
+            "Fixed { capacity: 4, len: 1, data: [196] }"
+        );
 
         assert_eq!(queue.enqueue(33), None);
-        assert_eq!(format!("{:?}", queue), "Fixed { capacity: 4, len: 2, data: [196, 33] }");
+        assert_eq!(
+            format!("{:?}", queue),
+            "Fixed { capacity: 4, len: 2, data: [196, 33] }"
+        );
 
         assert_eq!(queue.enqueue(17), None);
-        assert_eq!(format!("{:?}", queue), "Fixed { capacity: 4, len: 3, data: [196, 33, 17] }");
+        assert_eq!(
+            format!("{:?}", queue),
+            "Fixed { capacity: 4, len: 3, data: [196, 33, 17] }"
+        );
 
         assert_eq!(queue.enqueue(200), None);
-        assert_eq!(format!("{:?}", queue), "Fixed { capacity: 4, len: 4, data: [196, 33, 17, 200] }");
+        assert_eq!(
+            format!("{:?}", queue),
+            "Fixed { capacity: 4, len: 4, data: [196, 33, 17, 200] }"
+        );
     }
 }
