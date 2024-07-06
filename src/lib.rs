@@ -56,26 +56,26 @@ pub trait Queue {
     /// and use [Queue::bulk_enqueue] instead.
     /// 
     /// Inform the queue that `amount` many items have been written to the first `amount`
-    /// indices of the `enqueue_slots` it has most recently exposed. The semantics must be
+    /// indices of the `expose_slots` it has most recently exposed. The semantics must be
     /// equivalent to those of `enqueue` being called `amount` many times with exactly those
     /// items.
     ///
     /// #### Invariants
     ///
-    /// Callers must have written into (at least) the `amount` many first `enqueue_slots` that
+    /// Callers must have written into (at least) the `amount` many first `expose_slots` that
     /// were most recently exposed. Failure to uphold this invariant may cause undefined behavior.
     /// 
-    /// Calles must not have modified any `enqueue_slots` other than the first `amount` many.
+    /// Calles must not have modified any `expose_slots` other than the first `amount` many.
     /// Failure to uphold this invariant may cause undefined behavior.
     ///
     /// #### Safety
     ///
-    /// The queue implementation may assume the first `amount` many `enqueue_slots` that were most recently
+    /// The queue implementation may assume the first `amount` many `expose_slots` that were most recently
     /// exposed to contain initialized memory after this call, even if the memory it exposed was
     /// originally uninitialized. Violating the invariants can cause the queue to read undefined
     /// memory, which triggers undefined behavior.
     /// 
-    /// Further, the queue implementation my assume any `enqueue_slots` slots beyond the first `amount` many
+    /// Further, the queue implementation my assume any `expose_slots` slots beyond the first `amount` many
     /// to remain unchanged. In particular, the implementation may assume that those slots have *not*
     /// been set to [`MaybeUninit::uninit`].
     unsafe fn consider_enqueued(&mut self, amount: usize);
@@ -87,7 +87,7 @@ pub trait Queue {
     ///
     /// #### Implementation Notes
     ///
-    /// The default implementation orchestrates `enqueue_slots` and `did_enqueue` in a
+    /// The default implementation orchestrates `expose_slots` and `consider_queued` in a
     /// straightforward manner. Only provide your own implementation if you can do better
     /// than that.
     fn bulk_enqueue(&mut self, buffer: &[Self::Item]) -> usize {
@@ -119,18 +119,18 @@ pub trait Queue {
     /// To be used together with [Queue::consider_dequeued].
     ///
     /// Will return `None` if the queue is empty at the time of calling.
-    fn present_items(&mut self) -> Option<&[Self::Item]>;
+    fn expose_items(&mut self) -> Option<&[Self::Item]>;
 
     /// A low-level method for dequeueing multiple items at a time. If you are only *working* with
     /// queues (rather than implementing them yourself), you will probably want to ignore this method
     /// and use [Queue::bulk_dequeue] or [Queue::bulk_dequeue_maybeuninit] instead.
     /// 
     /// Mark `amount` many items as having been dequeued. Future calls to `dequeue` and to
-    /// `dequeue_slots` must act as if `dequeue` had been called `amount` many times.
+    /// `expose_items` must act as if `dequeue` had been called `amount` many times.
     ///     
     /// #### Invariants
     ///
-    /// Callers must not mark items as dequeued that had not previously been exposed by `dequeue_slots`.
+    /// Callers must not mark items as dequeued that had not previously been exposed by `expose_items`.
     fn consider_dequeued(&mut self, amount: usize);
 
     /// Dequeue a non-zero number of items by writing them into a given buffer and returning how
@@ -140,11 +140,11 @@ pub trait Queue {
     ///
     /// #### Implementation Notes
     ///
-    /// The default implementation orchestrates `dequeue_slots` and `did_dequeue` in a
+    /// The default implementation orchestrates `expose_items` and `consider_dequeued` in a
     /// straightforward manner. Only provide your own implementation if you can do better
     /// than that.
     fn bulk_dequeue(&mut self, buffer: &mut [Self::Item]) -> usize {
-        match self.present_items() {
+        match self.expose_items() {
             None => 0,
             Some(slots) => {
                 let amount = min(slots.len(), buffer.len());
@@ -163,11 +163,11 @@ pub trait Queue {
     ///
     /// #### Implementation Notes
     ///
-    /// The default implementation orchestrates `dequeue_slots` and `did_dequeue` in a
+    /// The default implementation orchestrates `expose_items` and `consider_dequeued` in a
     /// straightforward manner. Only provide your own implementation if you can do better
     /// than that.
     fn bulk_dequeue_maybeuninit(&mut self, buffer: &mut [MaybeUninit<Self::Item>]) -> usize {
-        match self.present_items() {
+        match self.expose_items() {
             None => 0,
             Some(slots) => {
                 let amount = min(slots.len(), buffer.len());

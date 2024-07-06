@@ -152,16 +152,16 @@ impl<T: Copy, A: Allocator> Queue for Fixed<T, A> {
     }
 
     /// Inform the queue that `amount` many items have been written to the first `amount`
-    /// indices of the `enqueue_slots` it has most recently exposed.
+    /// indices of the `expose_slots` it has most recently exposed.
     ///
     /// #### Invariants
     ///
-    /// Callers must have written into (at least) the `amount` many first `enqueue_slots` that
+    /// Callers must have written into (at least) the `amount` many first `expose_slots` that
     /// were most recently exposed. Failure to uphold this invariant may cause undefined behavior.
     ///
     /// #### Safety
     ///
-    /// The queue will assume the first `amount` many `enqueue_slots` that were most recently
+    /// The queue will assume the first `amount` many `expose_slots` that were most recently
     /// exposed to contain initialized memory after this call, even if the memory it exposed was
     /// originally uninitialized. Violating the invariants will cause the queue to read undefined
     /// memory, which triggers undefined behavior.
@@ -188,7 +188,7 @@ impl<T: Copy, A: Allocator> Queue for Fixed<T, A> {
     /// Expose a non-empty slice of items to be dequeued.
     ///
     /// Will return `None` if the queue is empty at the time of calling.
-    fn present_items(&mut self) -> Option<&[T]> {
+    fn expose_items(&mut self) -> Option<&[T]> {
         if self.amount == 0 {
             None
         } else {
@@ -201,7 +201,7 @@ impl<T: Copy, A: Allocator> Queue for Fixed<T, A> {
     /// #### Invariants
     ///
     /// Callers must not mark items as dequeued that had not previously been exposed by
-    /// `dequeue_slots`.
+    /// `expose_items`.
     fn consider_dequeued(&mut self, amount: usize) {
         self.read = (self.read + amount) % self.capacity();
         self.amount -= amount;
@@ -278,7 +278,7 @@ mod tests {
         // Create a fixed queue that exposes four slots.
         let mut queue: Fixed<u8> = Fixed::new(4);
 
-        // Copy data to two of the available slots and call `did_enqueue`.
+        // Copy data to two of the available slots and call `consider_queued`.
         let data = b"tofu";
         let slots = queue.expose_slots().unwrap();
         MaybeUninit::copy_from_slice(&mut slots[0..2], &data[0..2]);
@@ -286,14 +286,14 @@ mod tests {
             queue.consider_enqueued(2);
         }
 
-        // Copy data to two of the available slots and call `did_enqueue`.
+        // Copy data to two of the available slots and call `consider_queued`.
         let slots = queue.expose_slots().unwrap();
         MaybeUninit::copy_from_slice(&mut slots[0..2], &data[0..2]);
         unsafe {
             queue.consider_enqueued(2);
         }
 
-        // Make a third call to `enqueue_slots` after all available slots have been used.
+        // Make a third call to `expose_slots` after all available slots have been used.
         assert!(queue.expose_slots().is_none());
     }
 
@@ -305,11 +305,11 @@ mod tests {
         let data = b"tofu";
         let _amount = queue.bulk_enqueue(data);
 
-        let _slots = queue.present_items().unwrap();
+        let _slots = queue.expose_items().unwrap();
         queue.consider_dequeued(4);
 
-        // Make a second call to `dequeue_slots` after all available slots have been used.
-        assert!(queue.present_items().is_none());
+        // Make a second call to `expose_items` after all available slots have been used.
+        assert!(queue.expose_items().is_none());
     }
 
     #[test]
