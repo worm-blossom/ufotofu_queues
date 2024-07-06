@@ -9,16 +9,24 @@
 //!
 //! ## Queue Implementations
 //!
-//! So far, there is only a single implementation: [`Fixed`], which is a heap-allocated ring-buffer of unchanging capacity.
+//! So far, there is only a single implementation: [`Fixed`], which is a heap-allocated ring-buffer of unchanging capacity. It is gated behind the `std` or `alloc` feature, the prior of which is enabled by default.
 //!
 //! Future plans include a queue of static (known at compile-time) capacity that can be used in allocator-less environments, and an elastic queue that grows and shrinks its capacity within certain parameters, to free up memory under low load.
 
+#[cfg(feature = "std")]
+extern crate std;
+
+#[cfg(feature = "alloc")]
+extern crate alloc;
+
+#[cfg(any(feature = "std", feature = "alloc"))]
 mod fixed;
+#[cfg(any(feature = "std", feature = "alloc"))]
+pub use fixed::Fixed;
 
 use core::cmp::min;
 use core::mem::MaybeUninit;
 
-pub use fixed::Fixed;
 
 /// A first-in-first-out queue. Provides methods for bulk transfer of items similar to [ufotofu](https://crates.io/crates/ufotofu) [`BulkProducer`](https://docs.rs/ufotofu/0.1.0/ufotofu/sync/trait.BulkProducer.html)s and [`BulkConsumer`](https://docs.rs/ufotofu/0.1.0/ufotofu/sync/trait.BulkConsumer.html)s.
 pub trait Queue {

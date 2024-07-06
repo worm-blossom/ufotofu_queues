@@ -10,3 +10,13 @@ exclude = [
     "fuzz/*",
     ".github/workflows/rust.yml",
 ]
+
+[features]
+
+default = ["std"]
+
+# Provide functionality that relies on the std library. Enabled by default.
+std = []
+
+# Provide functionality that relies on dynamic memory allocation. Enabling `std` automatically enables all `alloc` features.
+alloc = []

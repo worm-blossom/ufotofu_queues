@@ -1,8 +1,5 @@
 #![no_main]
 
-use core::mem::MaybeUninit;
-use core::slice;
-
 use arbitrary::Arbitrary;
 use libfuzzer_sys::fuzz_target;
 
@@ -17,11 +14,6 @@ enum Operation<T> {
     Dequeue,
     BulkEnqueue(Vec<T>),
     BulkDequeue(u8),
-}
-
-fn maybe_uninit_slice_mut<T>(slice: &mut [T]) -> &mut [MaybeUninit<T>] {
-    let ptr = slice.as_mut_ptr().cast::<MaybeUninit<T>>();
-    unsafe { slice::from_raw_parts_mut(ptr, slice.len()) }
 }
 
 fuzz_target!(|data: (Vec<Operation<u8>>, usize)| {
@@ -70,7 +62,7 @@ fuzz_target!(|data: (Vec<Operation<u8>>, usize)| {
                     let mut test_buffer = vec![];
                     test_buffer.resize(n, 0_u8);
 
-                    let test_amount = test.bulk_dequeue(maybe_uninit_slice_mut(&mut test_buffer));
+                    let test_amount = test.bulk_dequeue(&mut test_buffer);
                     for _ in 0..test_amount {
                         if let Some(item) = control.pop_front() {
                             control_buffer.push(item.clone());
