@@ -10,6 +10,8 @@ use crate::Queue;
 
 /// A queue holding up to a certain number of items. The capacity is set upon
 /// creation and remains fixed. Performs a single heap allocation on creation.
+/// 
+/// Use the methods of the [Queue] trait implementation to interact with the contents of the queue.
 pub struct Fixed<T, A: Allocator = Global> {
     /// Slice of memory, used as a ring-buffer.
     data: Box<[MaybeUninit<T>], A>,
@@ -141,7 +143,7 @@ impl<T: Copy, A: Allocator> Queue for Fixed<T, A> {
     /// be enqueued.
     ///
     /// Will return `None` if the queue is full at the time of calling.
-    fn enqueue_slots(&mut self) -> Option<&mut [MaybeUninit<T>]> {
+    fn expose_slots(&mut self) -> Option<&mut [MaybeUninit<T>]> {
         if self.amount == self.capacity() {
             None
         } else {
@@ -163,7 +165,7 @@ impl<T: Copy, A: Allocator> Queue for Fixed<T, A> {
     /// exposed to contain initialized memory after this call, even if the memory it exposed was
     /// originally uninitialized. Violating the invariants will cause the queue to read undefined
     /// memory, which triggers undefined behavior.
-    unsafe fn did_enqueue(&mut self, amount: usize) {
+    unsafe fn consider_enqueued(&mut self, amount: usize) {
         self.amount += amount;
     }
 
@@ -186,7 +188,7 @@ impl<T: Copy, A: Allocator> Queue for Fixed<T, A> {
     /// Expose a non-empty slice of items to be dequeued.
     ///
     /// Will return `None` if the queue is empty at the time of calling.
-    fn dequeue_slots(&mut self) -> Option<&[T]> {
+    fn present_items(&mut self) -> Option<&[T]> {
         if self.amount == 0 {
             None
         } else {
@@ -200,7 +202,7 @@ impl<T: Copy, A: Allocator> Queue for Fixed<T, A> {
     ///
     /// Callers must not mark items as dequeued that had not previously been exposed by
     /// `dequeue_slots`.
-    fn did_dequeue(&mut self, amount: usize) {
+    fn consider_dequeued(&mut self, amount: usize) {
         self.read = (self.read + amount) % self.capacity();
         self.amount -= amount;
     }
@@ -278,21 +280,21 @@ mod tests {
 
         // Copy data to two of the available slots and call `did_enqueue`.
         let data = b"tofu";
-        let slots = queue.enqueue_slots().unwrap();
+        let slots = queue.expose_slots().unwrap();
         MaybeUninit::copy_from_slice(&mut slots[0..2], &data[0..2]);
         unsafe {
-            queue.did_enqueue(2);
+            queue.consider_enqueued(2);
         }
 
         // Copy data to two of the available slots and call `did_enqueue`.
-        let slots = queue.enqueue_slots().unwrap();
+        let slots = queue.expose_slots().unwrap();
         MaybeUninit::copy_from_slice(&mut slots[0..2], &data[0..2]);
         unsafe {
-            queue.did_enqueue(2);
+            queue.consider_enqueued(2);
         }
 
         // Make a third call to `enqueue_slots` after all available slots have been used.
-        assert!(queue.enqueue_slots().is_none());
+        assert!(queue.expose_slots().is_none());
     }
 
     #[test]
@@ -303,11 +305,11 @@ mod tests {
         let data = b"tofu";
         let _amount = queue.bulk_enqueue(data);
 
-        let _slots = queue.dequeue_slots().unwrap();
-        queue.did_dequeue(4);
+        let _slots = queue.present_items().unwrap();
+        queue.consider_dequeued(4);
 
         // Make a second call to `dequeue_slots` after all available slots have been used.
-        assert!(queue.dequeue_slots().is_none());
+        assert!(queue.present_items().is_none());
     }
 
     #[test]
