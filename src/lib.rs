@@ -111,7 +111,30 @@ pub trait Queue {
     /// The default implementation orchestrates `dequeue_slots` and `did_dequeue` in a
     /// straightforward manner. Only provide your own implementation if you can do better
     /// than that.
-    fn bulk_dequeue(&mut self, buffer: &mut [MaybeUninit<Self::Item>]) -> usize {
+    fn bulk_dequeue(&mut self, buffer: &mut [Self::Item]) -> usize {
+        match self.dequeue_slots() {
+            None => 0,
+            Some(slots) => {
+                let amount = min(slots.len(), buffer.len());
+                buffer[..amount].copy_from_slice(&slots[..amount]);
+                self.did_dequeue(amount);
+
+                amount
+            }
+        }
+    }
+
+    /// Dequeue a non-zero number of items by writing them into a given buffer of possible
+    /// uninitialised memory and returning how many items were dequeued.
+    ///
+    /// Will return `0` if the queue is empty at the time of calling.
+    ///
+    /// #### Implementation Notes
+    ///
+    /// The default implementation orchestrates `dequeue_slots` and `did_dequeue` in a
+    /// straightforward manner. Only provide your own implementation if you can do better
+    /// than that.
+    fn bulk_dequeue_maybeuninit(&mut self, buffer: &mut [MaybeUninit<Self::Item>]) -> usize {
         match self.dequeue_slots() {
             None => 0,
             Some(slots) => {

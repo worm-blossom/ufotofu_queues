@@ -10,9 +10,6 @@ use crate::Queue;
 
 /// A queue holding up to a certain number of items. The capacity is set upon
 /// creation and remains fixed. Performs a single heap allocation on creation.
-///
-/// We will add fallible creation functions based on [`Box::try_new_in`](https://doc.rust-lang.org/nightly/std/boxed/struct.Box.html#method.try_new_in) at a later point, please reach out
-/// if you need them for your project.
 pub struct Fixed<T, A: Allocator = Global> {
     /// Slice of memory, used as a ring-buffer.
     data: Box<[MaybeUninit<T>], A>,
@@ -31,6 +28,15 @@ impl<T> Fixed<T> {
             amount: 0,
         }
     }
+
+    /// Try to create a fixed-capacity queue. If the initial memory allocation fails, return `None` instead.
+    pub fn try_new(capacity: usize) -> Option<Self> {
+        Some(Fixed {
+            data: Box::try_new_uninit_slice(capacity).ok()?,
+            read: 0,
+            amount: 0,
+        })
+    }
 }
 
 impl<T, A: Allocator> Fixed<T, A> {
@@ -42,6 +48,15 @@ impl<T, A: Allocator> Fixed<T, A> {
             amount: 0,
         }
     }
+
+    // /// Try to create a fixed-capacity queue with a given memory allocator. If the initial memory allocation fails, return `None` instead.
+    // pub fn try_new_in(capacity: usize, alloc: A) -> Option<Self> {
+    //     Some(Fixed {
+    //         data: Box::try_new_uninit_slice_in(capacity, alloc)?,
+    //         read: 0,
+    //         amount: 0,
+    //     })
+    // }
 
     fn is_data_contiguous(&self) -> bool {
         self.read + self.amount < self.capacity()
@@ -230,7 +245,7 @@ mod tests {
         let mut buf: [MaybeUninit<u8>; 4] = MaybeUninit::uninit_array();
 
         let enqueue_amount = queue.bulk_enqueue(b"ufo");
-        let dequeue_amount = queue.bulk_dequeue(&mut buf);
+        let dequeue_amount = queue.bulk_dequeue_maybeuninit(&mut buf);
 
         assert_eq!(enqueue_amount, dequeue_amount);
     }
