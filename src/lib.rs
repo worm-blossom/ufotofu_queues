@@ -113,7 +113,7 @@ pub trait Queue {
 
     /// A low-level method for dequeueing multiple items at a time. If you are only *working* with
     /// queues (rather than implementing them yourself), you will probably want to ignore this method
-    /// and use [Queue::bulk_dequeue] or [Queue::bulk_dequeue_maybeuninit] instead.
+    /// and use [Queue::bulk_dequeue] or [Queue::bulk_dequeue_uninit] instead.
     /// 
     /// Expose a non-empty slice of items to be dequeued.
     /// The items in the slice must not have been emitted by `dequeue` before.
@@ -124,7 +124,7 @@ pub trait Queue {
 
     /// A low-level method for dequeueing multiple items at a time. If you are only *working* with
     /// queues (rather than implementing them yourself), you will probably want to ignore this method
-    /// and use [Queue::bulk_dequeue] or [Queue::bulk_dequeue_maybeuninit] instead.
+    /// and use [Queue::bulk_dequeue] or [Queue::bulk_dequeue_uninit] instead.
     /// 
     /// Mark `amount` many items as having been dequeued. Future calls to `dequeue` and to
     /// `expose_items` must act as if `dequeue` had been called `amount` many times.
@@ -167,7 +167,7 @@ pub trait Queue {
     /// The default implementation orchestrates `expose_items` and `consider_dequeued` in a
     /// straightforward manner. Only provide your own implementation if you can do better
     /// than that.
-    fn bulk_dequeue_maybeuninit(&mut self, buffer: &mut [MaybeUninit<Self::Item>]) -> usize {
+    fn bulk_dequeue_uninit(&mut self, buffer: &mut [MaybeUninit<Self::Item>]) -> usize {
         match self.expose_items() {
             None => 0,
             Some(slots) => {
