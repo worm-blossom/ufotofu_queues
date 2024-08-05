@@ -10,9 +10,12 @@
 //!
 //! ## Queue Implementations
 //!
-//! So far, there is only a single implementation: [`Fixed`], which is a heap-allocated ring-buffer of unchanging capacity. It is gated behind the `std` or `alloc` feature, the prior of which is enabled by default.
+//! So far, there are two implementations:
+//! 
+//! - [`Fixed`], which is a heap-allocated ring-buffer of unchanging capacity. It is gated behind the `std` or `alloc` feature, the prior of which is enabled by default.
+//! - [`Static`], which works exactly like [`Fixed`], but is backed by an array of static capacity. It requires no allocations.
 //!
-//! Future plans include a queue of static (known at compile-time) capacity that can be used in allocator-less environments, and an elastic queue that grows and shrinks its capacity within certain parameters, to free up memory under low load.
+//! Future plans include an elastic queue that grows and shrinks its capacity within certain parameters, to free up memory under low load.
 
 #[cfg(feature = "std")]
 extern crate std;
@@ -24,6 +27,9 @@ extern crate alloc;
 mod fixed;
 #[cfg(any(feature = "std", feature = "alloc"))]
 pub use fixed::Fixed;
+
+mod static_;
+pub use static_::Static;
 
 use core::cmp::min;
 use core::mem::MaybeUninit;
