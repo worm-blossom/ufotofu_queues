@@ -11,7 +11,7 @@
 //! ## Queue Implementations
 //!
 //! So far, there are two implementations:
-//! 
+//!
 //! - [`Fixed`], which is a heap-allocated ring-buffer of unchanging capacity. It is gated behind the `std` or `alloc` feature, the prior of which is enabled by default.
 //! - [`Static`], which works exactly like [`Fixed`], but is backed by an array of static capacity. It requires no allocations.
 //!
@@ -34,7 +34,6 @@ pub use static_::Static;
 use core::cmp::min;
 use core::mem::MaybeUninit;
 
-
 /// A first-in-first-out queue. Provides methods for bulk transfer of items similar to [ufotofu](https://crates.io/crates/ufotofu) [`BulkProducer`](https://docs.rs/ufotofu/0.1.0/ufotofu/sync/trait.BulkProducer.html)s and [`BulkConsumer`](https://docs.rs/ufotofu/0.1.0/ufotofu/sync/trait.BulkConsumer.html)s.
 pub trait Queue {
     /// The type of items to manage in the queue.
@@ -51,7 +50,7 @@ pub trait Queue {
     /// A low-level method for enqueueing multiple items at a time. If you are only *working* with
     /// queues (rather than implementing them yourself), you will probably want to ignore this method
     /// and use [Queue::bulk_enqueue] instead.
-    /// 
+    ///
     /// Expose a non-empty slice of memory for the client code to fill with items that should
     /// be enqueued. To be used together with [Queue::consider_enqueued].
     ///
@@ -61,7 +60,7 @@ pub trait Queue {
     /// A low-level method for enqueueing multiple items at a time. If you are only *working* with
     /// queues (rather than implementing them yourself), you will probably want to ignore this method
     /// and use [Queue::bulk_enqueue] instead.
-    /// 
+    ///
     /// Inform the queue that `amount` many items have been written to the first `amount`
     /// indices of the `expose_slots` it has most recently exposed. The semantics must be
     /// equivalent to those of `enqueue` being called `amount` many times with exactly those
@@ -71,7 +70,7 @@ pub trait Queue {
     ///
     /// Callers must have written into (at least) the `amount` many first `expose_slots` that
     /// were most recently exposed. Failure to uphold this invariant may cause undefined behavior.
-    /// 
+    ///
     /// Calles must not have modified any `expose_slots` other than the first `amount` many.
     /// Failure to uphold this invariant may cause undefined behavior.
     ///
@@ -81,7 +80,7 @@ pub trait Queue {
     /// exposed to contain initialized memory after this call, even if the memory it exposed was
     /// originally uninitialized. Violating the invariants can cause the queue to read undefined
     /// memory, which triggers undefined behavior.
-    /// 
+    ///
     /// Further, the queue implementation my assume any `expose_slots` slots beyond the first `amount` many
     /// to remain unchanged. In particular, the implementation may assume that those slots have *not*
     /// been set to [`MaybeUninit::uninit`].
@@ -120,7 +119,7 @@ pub trait Queue {
     /// A low-level method for dequeueing multiple items at a time. If you are only *working* with
     /// queues (rather than implementing them yourself), you will probably want to ignore this method
     /// and use [Queue::bulk_dequeue] or [Queue::bulk_dequeue_uninit] instead.
-    /// 
+    ///
     /// Expose a non-empty slice of items to be dequeued.
     /// The items in the slice must not have been emitted by `dequeue` before.
     /// To be used together with [Queue::consider_dequeued].
@@ -131,7 +130,7 @@ pub trait Queue {
     /// A low-level method for dequeueing multiple items at a time. If you are only *working* with
     /// queues (rather than implementing them yourself), you will probably want to ignore this method
     /// and use [Queue::bulk_dequeue] or [Queue::bulk_dequeue_uninit] instead.
-    /// 
+    ///
     /// Mark `amount` many items as having been dequeued. Future calls to `dequeue` and to
     /// `expose_items` must act as if `dequeue` had been called `amount` many times.
     ///     
