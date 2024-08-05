@@ -42,6 +42,11 @@ pub trait Queue {
     /// Return the number of items currently in the queue.
     fn len(&self) -> usize;
 
+    /// Return whether the queue is empty. Must return `true` if and only if `self.len()` returns `0`.
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Attempt to enqueue an item.
     ///
     /// Will return the item instead of enqueueing it if the queue is full at the time of calling.

@@ -17,6 +17,12 @@ pub struct Static<T, const N: usize> {
     amount: usize,
 }
 
+impl<T, const N: usize> Default for Static<T, N> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T, const N: usize> Static<T, N> {
     /// Create a fixed-capacity queue.
     pub fn new() -> Self {
